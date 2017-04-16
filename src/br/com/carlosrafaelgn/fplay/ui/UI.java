@@ -241,11 +241,11 @@ public final class UI implements Animation.AnimationListener, Interpolator {
 	public static final String ICON_EQUALIZER24 = "Z";
 	public static final String ICON_CREATE = "&";
 	public static final String ICON_MOVE24 = "r";
-	public static final String ICON_FPLAY24 = "¡";
-	public static final String ICON_REPEATNONE24 = "²";
-	public static final String ICON_EXIT24 = "³";
-	public static final String ICON_NUMBER = "¤";
-	public static final String ICON_OK = "±";
+	public static final String ICON_FPLAY24 = "癒";
+	public static final String ICON_REPEATNONE24 = "簡";
+	public static final String ICON_EXIT24 = "糧";
+	public static final String ICON_NUMBER = "瞻";
+	public static final String ICON_OK = "簣";
 
 	public static final int KEY_UP = KeyEvent.KEYCODE_DPAD_UP;
 	public static final int KEY_DOWN = KeyEvent.KEYCODE_DPAD_DOWN;
@@ -649,17 +649,17 @@ public final class UI implements Animation.AnimationListener, Interpolator {
 		case LOCALE_US:
 			return "English";
 		case LOCALE_PTBR:
-			return "Português (Brasil)";
+			return "Portugu礙s (Brasil)";
 		case LOCALE_RU:
-			return "Русский";
+			return "�碟覜�";
 		case LOCALE_UK:
-			return "Українська";
+			return "苺郕�訄�諸碟�";
 		case LOCALE_ES:
-			return "Español";
+			return "Espa簽ol";
 		case LOCALE_DE:
 			return "Deutsch";
 		case LOCALE_FR:
-			return "Français";
+			return "Fran癟ais";
 		}
 		return Player.theApplication.getText(R.string.standard_language).toString();
 	}
@@ -2287,7 +2287,7 @@ public final class UI implements Animation.AnimationListener, Interpolator {
 			//I couldn't make AccessibilityEvent.TYPE_ANNOUNCEMENT work... even on Android 16+
 			e.setEventType(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
 			e.setClassName("br.com.carlosrafaelgn.fplay.activity.ActivityHost");
-			e.setPackageName(BuildConfig.APPLICATION_ID);
+			e.setPackageName("br.com.carlosrafaelgn.fplay.x");
 			e.getText().add(text);
 			accessibilityManager.sendAccessibilityEvent(e);
 		}

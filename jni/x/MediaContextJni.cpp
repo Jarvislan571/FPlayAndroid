@@ -37,7 +37,6 @@
 #include <stdlib.h>
 #include <byteswap.h>
 #include <time.h>
-
 #define FFT_SIZE 1024 //FFT_SIZE must be a power of 2 <= 65536
 #define QUARTER_FFT_SIZE (FFT_SIZE / 4)
 
@@ -93,7 +92,6 @@ static uint32_t neonMode;
 static uint32_t srcSampleRate, srcChannelCount;
 uint32_t dstSampleRate;
 static int16_t *tmpSwapBufferForAudioTrack;
-
 union int64_3232 {
 	int64_t v;
 	struct {
@@ -117,7 +115,13 @@ uint32_t uptimeMillis() {
 	clock_gettime(CLOCK_MONOTONIC, &t);
 	return (uint32_t)((t.tv_sec * 1000) + (t.tv_nsec / 1000000));
 }
-
+int next_power_of_two(float a_F){
+	    int f = *(int*)&a_F;
+	    int b = f << 9 != 0;
+	    f >>= 23;
+	    f -= 127;
+	    return (1 << (f + b));
+}
 void swapShortsInplace(int16_t* buffer, uint32_t sizeInShorts) {
 	while (sizeInShorts) {
 		*buffer = bswap_16(*buffer);
@@ -221,7 +225,6 @@ int64_t JNICALL audioTrackProcessEffects(JNIEnv* env, jclass clazz, jbyteArray j
 		env->ReleasePrimitiveArrayCritical(jsrcArray, srcBuffer, JNI_ABORT);
 
 	advanceVisualizer(dstBuffer, ret.dstFramesUsed);
-
 	effectProc(dstBuffer, ret.dstFramesUsed);
 
 	if (!jdstBuffer)
@@ -243,7 +246,6 @@ int64_t JNICALL audioTrackProcessNativeEffects(JNIEnv* env, jclass clazz, uint64
 	ret.dstFramesUsed = resampleProc((int16_t*)(((MediaCodec*)nativeObj)->buffer + offsetInBytes), sizeInFrames, dstBuffer, MAXIMUM_BUFFER_SIZE_IN_FRAMES_FOR_PROCESSING << 1, ret.srcFramesUsed);
 
 	advanceVisualizer(dstBuffer, ret.dstFramesUsed);
-
 	effectProc(dstBuffer, ret.dstFramesUsed);
 
 	return ret.val;
@@ -251,10 +253,6 @@ int64_t JNICALL audioTrackProcessNativeEffects(JNIEnv* env, jclass clazz, uint64
 
 #ifdef FPLAY_ARM
 void checkNeonMode() {
-#ifdef FPLAY_64_BITS
-	//can we safely assume this???
-	neonMode = FEATURE_PROCESSOR_NEON;
-#else
 	//based on
 	//http://code.google.com/p/webrtc/source/browse/trunk/src/system_wrappers/source/android/cpu-features.c?r=2195
 	//http://code.google.com/p/webrtc/source/browse/trunk/src/system_wrappers/source/android/cpu-features.h?r=2195
@@ -290,7 +288,6 @@ void checkNeonMode() {
 			}
 		}
 	}
-#endif
 }
 #endif
 
@@ -361,7 +358,6 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
 	env->RegisterNatives(clazz, methodTable, sizeof(methodTable) / sizeof(methodTable[0]));
 	return JNI_VERSION_1_6;
 }
-
 JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved) {
 	openSLTerminate(0, 0);
 	terminateEffects();

@@ -44,7 +44,7 @@ public final class ExternalFx {
 
 	@SuppressWarnings({ "PointlessBooleanExpression", "ConstantConditions" })
 	static void loadConfig(SerializableMap opts) {
-		enabled = (!BuildConfig.X && opts.getBit(Player.OPTBIT_EXTERNALFX_ENABLED));
+		enabled = false;
 	}
 
 	static void saveConfig(SerializableMap opts) {
@@ -53,7 +53,7 @@ public final class ExternalFx {
 
 	private static void broadcastOpenIntent() {
 		final Intent intent = new Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION);
-		intent.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, BuildConfig.APPLICATION_ID);
+		intent.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, "br.com.carlosrafaelgn.fplay.x");
 		intent.putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC);
 		intent.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, Player.audioSessionId);
 		Player.theApplication.sendBroadcast(intent);
@@ -61,7 +61,7 @@ public final class ExternalFx {
 
 	private static Intent createDisplayIntent() {
 		final Intent intent = new Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL);
-		intent.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, BuildConfig.APPLICATION_ID);
+		intent.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, "br.com.carlosrafaelgn.fplay.x");
 		intent.putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC);
 		intent.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, Player.audioSessionId);
 		return intent;
@@ -69,7 +69,7 @@ public final class ExternalFx {
 
 	private static void broadcastCloseIntent() {
 		final Intent intent = new Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION);
-		intent.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, BuildConfig.APPLICATION_ID);
+		intent.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, "br.com.carlosrafaelgn.fplay.x");
 		intent.putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC);
 		intent.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, Player.audioSessionId);
 		Player.theApplication.sendBroadcast(intent);
@@ -77,11 +77,7 @@ public final class ExternalFx {
 
 	@SuppressWarnings({ "PointlessBooleanExpression", "ConstantConditions" })
 	static void _checkSupport() {
-		try {
-			supported = (!BuildConfig.X && createDisplayIntent().resolveActivity(Player.theApplication.getPackageManager()) != null);
-		} catch (Throwable ex) {
-			supported = false;
-		}
+		supported = false;
 	}
 
 	static void _initialize() {

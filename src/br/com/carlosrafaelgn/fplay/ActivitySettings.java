@@ -1128,32 +1128,24 @@ public final class ActivitySettings extends ClientActivity implements Player.Pla
 			optAnnounceCurrentSong = new SettingView(ctx, UI.ICON_MIC, getText(R.string.announce_current_song).toString(), null, true, Player.announceCurrentSong, false);
 			optFollowCurrentSong = new SettingView(ctx, UI.ICON_SCROLLBAR, getText(R.string.follow_current_song).toString(), null, true, Player.followCurrentSong, false);
 			optBytesBeforeDecoding = new SettingView(ctx, UI.ICON_RADIO, getText(R.string.bytes_before_decoding).toString(), getBytesBeforeDecodingString(Player.getBytesBeforeDecodingIndex()), false, false, false);
-			if (!BuildConfig.X) {
-				optMSBeforePlayback = new SettingView(ctx, UI.ICON_RADIO, getText(R.string.seconds_before_playback).toString(), getSecondsBeforePlaybackString(Player.getMSBeforePlaybackIndex()), false, false, false);
-			} else {
-				optBufferSize = new SettingView(ctx, UI.ICON_PLAY, getText(R.string.playback_buffer_length).toString(), getBufferSizeString(Player.getBufferConfig()), false, false, false);
-				optFillThreshold = createOptFillThreshold();
-				optPlaybackEngine = new SettingView(ctx, UI.ICON_FPLAY, getText(R.string.playback_engine).toString(), getPlaybackEngineString(MediaContext.useOpenSLEngine), false, false, false);
-				optResampling = new SettingView(ctx, UI.ICON_SETTINGS, getText(R.string.resample_track_to_native).toString(), null, true, Player.isResamplingEnabled(), false);
-			}
+			optBufferSize = new SettingView(ctx, UI.ICON_PLAY, getText(R.string.playback_buffer_length).toString(), getBufferSizeString(Player.getBufferConfig()), false, false, false);
+			optFillThreshold = createOptFillThreshold();
+			optPlaybackEngine = new SettingView(ctx, UI.ICON_FPLAY, getText(R.string.playback_engine).toString(), getPlaybackEngineString(MediaContext.useOpenSLEngine), false, false, false);
+			optResampling = new SettingView(ctx, UI.ICON_SETTINGS, getText(R.string.resample_track_to_native).toString(), null, true, Player.isResamplingEnabled(), false);
 
 			int hIdx = 0;
-			headers = new TextView[BuildConfig.X ? 9 : ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) ? 8 : 7)];
+			headers = new TextView[9];
 			addHeader(ctx, R.string.msg_turn_off_title, optAutoTurnOffPlaylist, hIdx++);
 			addOption(optAutoTurnOff);
 			addOption(optAutoIdleTurnOff);
 			addOption(optAutoTurnOffPlaylist);
-			if (BuildConfig.X) {
-				addHeader(ctx, R.string.performance, optAutoTurnOffPlaylist, hIdx++);
-				addOption(optPlaybackEngine);
-				addOption(optBufferSize);
-				if (MediaContext.useOpenSLEngine)
-					addOption(optFillThreshold);
-				addOption(optResampling);
-				addHeader(ctx, R.string.hdr_display, optResampling, hIdx++);
-			} else {
-				addHeader(ctx, R.string.hdr_display, optAutoTurnOffPlaylist, hIdx++);
-			}
+			addHeader(ctx, R.string.performance, optAutoTurnOffPlaylist, hIdx++);
+			addOption(optPlaybackEngine);
+			addOption(optBufferSize);
+			if (MediaContext.useOpenSLEngine)
+				addOption(optFillThreshold);
+			addOption(optResampling);
+			addHeader(ctx, R.string.hdr_display, optResampling, hIdx++);
 			if (!UI.isChromebook)
 				addOption(optKeepScreenOn);
 			addOption(optTheme);
@@ -1194,10 +1186,8 @@ public final class ActivitySettings extends ClientActivity implements Player.Pla
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
 				addHeader(ctx, R.string.radio, optWidgetIconColor, hIdx++);
 				addOption(optBytesBeforeDecoding);
-				if (!BuildConfig.X)
-					addOption(optMSBeforePlayback);
 			}
-			addHeader(ctx, R.string.hdr_playback, (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) ? (BuildConfig.X ? optBytesBeforeDecoding : optMSBeforePlayback) : optWidgetIconColor, hIdx++);
+			addHeader(ctx, R.string.hdr_playback, (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) ? (optBytesBeforeDecoding) : optWidgetIconColor, hIdx++);
 			if (ExternalFx.isSupported())
 				addOption(optExternalFx);
 			addOption(optPlayWhenHeadsetPlugged);

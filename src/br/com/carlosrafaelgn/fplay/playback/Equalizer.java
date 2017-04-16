@@ -216,8 +216,8 @@ public final class Equalizer {
 			}
 			short[] l = theEqualizer.getBandLevelRange();
 			if (l == null || l.length != 2) {
-				minBandLevel = -1500;
-				maxBandLevel = 1500;
+				minBandLevel = -1600;
+				maxBandLevel = 1600;
 			} else {
 				minBandLevel = (int)l[0];
 				maxBandLevel = (int)l[1];

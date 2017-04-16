@@ -88,37 +88,46 @@ public final class ActivityEffects extends ClientActivity implements Timer.Timer
 		if (txtBuilder == null)
 			return "";
 		txtBuilder.delete(0, txtBuilder.length());
-		if (BuildConfig.X) {
-			switch (frequencyIndex) {
-			case 0:
-				txtBuilder.append("Pre  ");
-				break;
-			case 1:
-				txtBuilder.append("31 / 62 Hz  ");
-				break;
-			case 2:
-				txtBuilder.append("125 Hz  ");
-				break;
-			case 3:
-				txtBuilder.append("250 Hz  ");
-				break;
-			case 4:
-				txtBuilder.append("500 / 1k Hz  ");
-				break;
-			case 5:
-				txtBuilder.append("2k / 4k Hz  ");
-				break;
-			default:
-				txtBuilder.append("8k / 16k Hz  ");
-				break;
-			}
-		} else {
-			final int frequency = frequencies[frequencyIndex];
-			if (frequency < 1000)
-				txtBuilder.append(frequency);
-			else
-				UI.formatIntAsFloat(txtBuilder, frequency / 100, false, true);
-			txtBuilder.append((frequency < 1000) ? " Hz  " : " kHz  ");
+		switch (frequencyIndex) {
+		case 0:
+			txtBuilder.append("Pre  ");
+			break;
+		case 1:
+			txtBuilder.append("32 Hz  ");
+			break;
+		case 2:
+			txtBuilder.append("64 Hz  ");
+			break;
+		case 3:
+			txtBuilder.append("126 Hz  ");
+			break;
+		case 4:
+			txtBuilder.append("220 Hz  ");
+			break;
+		case 5:
+			txtBuilder.append("380 Hz  ");
+			break;
+		case 6:
+			txtBuilder.append("750 Hz  ");
+			break;
+		case 7:
+			txtBuilder.append("1.6k Hz  ");
+			break;
+		case 8:
+			txtBuilder.append("3k Hz  ");
+			break;
+		case 9:
+			txtBuilder.append("4.8k Hz  ");
+			break;
+		case 10:
+			txtBuilder.append("7k Hz  ");
+			break;
+		case 11:
+			txtBuilder.append("11k Hz  ");
+			break;
+		default:
+			txtBuilder.append("15k Hz  ");
+			break;
 		}
 		if (level >= 0)
 			txtBuilder.append('+');
@@ -390,12 +399,12 @@ public final class ActivityEffects extends ClientActivity implements Timer.Timer
 
 	@SuppressWarnings({ "PointlessBooleanExpression", "ConstantConditions" })
 	private int barToActualBassBoost(int barValue) {
-		return (BuildConfig.X ? (barValue * 50) : (barValue * 10));
+		return (barValue * 50);
 	}
 
 	@SuppressWarnings({ "PointlessBooleanExpression", "ConstantConditions" })
 	private int actualToBarBassBoost(int actualValue) {
-		return (BuildConfig.X ? (actualValue / 50) : (actualValue / 10));
+		return (actualValue / 50);
 	}
 
 	private int barToActualVirtualizer(int barValue) {
@@ -485,22 +494,20 @@ public final class ActivityEffects extends ClientActivity implements Timer.Timer
 		chkVirtualizer.setOnClickListener(this);
 		chkVirtualizer.setTextColor(UI.colorState_text_listitem_reactive);
 		chkVirtualizer.formatAsLabelledCheckBox();
-		if (BuildConfig.X) {
-			chkAGC = (BgButton)findViewById(R.id.chkAGC);
-			chkAGC.setOnClickListener(this);
-			chkAGC.setTextColor(UI.colorState_text_listitem_reactive);
-			chkAGC.formatAsLabelledCheckBox();
-			chkAGC.setVisibility(View.VISIBLE);
-			chkAGC.setChecked(Player.isAutomaticEffectsGainEnabled());
-			txtAGC = (TextView)findViewById(R.id.txtAGC);
-			UI.mediumText(txtAGC);
-			txtAGC.setTextColor(UI.colorState_text_listitem_static);
-			txtAGC.setCompoundDrawables(new TextIconDrawable(UI.ICON_CLIP, UI.color_text_listitem_secondary), null, null, null);
-			txtAGC.setVisibility(View.VISIBLE);
-			updateAGCText();
-			tmrAGC = new Timer(this, "AGC Update Timer", false, true, false);
-			tmrAGC.start(ACG_UPDATE_INTERVAL);
-		}
+		chkAGC = (BgButton)findViewById(R.id.chkAGC);
+		chkAGC.setOnClickListener(this);
+		chkAGC.setTextColor(UI.colorState_text_listitem_reactive);
+		chkAGC.formatAsLabelledCheckBox();
+		chkAGC.setVisibility(View.VISIBLE);
+		chkAGC.setChecked(Player.isAutomaticEffectsGainEnabled());
+		txtAGC = (TextView)findViewById(R.id.txtAGC);
+		UI.mediumText(txtAGC);
+		txtAGC.setTextColor(UI.colorState_text_listitem_static);
+		txtAGC.setCompoundDrawables(new TextIconDrawable(UI.ICON_CLIP, UI.color_text_listitem_secondary), null, null, null);
+		txtAGC.setVisibility(View.VISIBLE);
+		updateAGCText();
+		tmrAGC = new Timer(this, "AGC Update Timer", false, true, false);
+		tmrAGC.start(ACG_UPDATE_INTERVAL);
 		btnMenu = (BgButton)findViewById(R.id.btnMenu);
 		btnMenu.setOnClickListener(this);
 		btnMenu.setIcon(UI.ICON_MENU_MORE);
@@ -560,7 +567,7 @@ public final class ActivityEffects extends ClientActivity implements Timer.Timer
 				lp.bottomMargin = margin >> 1;
 				panelEqualizer.setLayoutParams(lp);
 			}
-			if (!addLargeEmptySpaces || BuildConfig.X) {
+			if (!addLargeEmptySpaces) {
 				lp = (LinearLayout.LayoutParams)barBass.getLayoutParams();
 				lp.bottomMargin = UI.controlLargeMargin;
 				barBass.setLayoutParams(lp);

@@ -33,6 +33,7 @@
 package br.com.carlosrafaelgn.fplay;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -806,11 +807,8 @@ public final class ActivityMain extends ClientActivity implements Timer.TimerHan
 
 	@SuppressWarnings({ "PointlessBooleanExpression", "ConstantConditions" })
 	private void openVisualizer(int id) {
-		if (!BuildConfig.X && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-			if (getHostActivity().checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-				getHostActivity().requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, id);
-				return;
-			}
+		if (getHostActivity().checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+			getHostActivity().requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, id);
 		}
 		switch (id) {
 		case MNU_VISUALIZER:

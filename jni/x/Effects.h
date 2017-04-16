@@ -32,13 +32,15 @@
 //
 
 #include "EffectsImplMacros.h"
-
+#include "iir/Iir.h"
+#define TAG "Equalizer16Band"
+#include <android/log.h>
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO,TAG,__VA_ARGS__)
 //https://en.wikipedia.org/wiki/Dynamic_range_compression
 //https://en.wikipedia.org/wiki/Dynamic_range_compression#Limiting
 //as the article states, brick-wall limiting are harsh and unpleasant.. also... reducing the gain abruptly causes audible clicks!
-#define GAIN_REDUCTION_PER_SECOND_DB -40.0 //-40.0dB/s
-#define GAIN_RECOVERY_PER_SECOND_DB 0.25 //+0.25dB/s
-
+#define GAIN_REDUCTION_PER_SECOND_DB -40.0 //-30.0dB/s
+#define GAIN_RECOVERY_PER_SECOND_DB 3.0 //+3.0dB/s
 static uint32_t bassBoostStrength, virtualizerStrength;
 static int32_t equalizerGainInMillibels[BAND_COUNT];
 static EFFECTPROC effectProc;
@@ -54,8 +56,7 @@ float effectsGainRecoveryOne[4] __attribute__((aligned(16))) = { 1.0f, 1.0f, 0.0
 	effectsGainRecoveryPerFrame[4] __attribute__((aligned(16))),
 	effectsGainClip[4] __attribute__((aligned(16))),
 	equalizerLastBandGain[4] __attribute__((aligned(16)));
-EqualizerCoefs equalizerCoefs[BAND_COUNT - 2] __attribute__((aligned(16)));
-EqualizerState equalizerStates[BAND_COUNT - 2] __attribute__((aligned(16)));
+float preAmpVal = 1;
 float *effectsFloatSamples;
 
 #ifdef FPLAY_X86
@@ -63,11 +64,33 @@ static const uint32_t effectsAbsSample[4] __attribute__((aligned(16))) = { 0x7FF
 #else
 extern void processEffectsNeon(int16_t* buffer, uint32_t sizeInFrames);
 #endif
-
-#include "Filter.h"
-
+Iir::Butterworth::LowShelf<4,Iir::DirectFormII> BassBoostl;
+Iir::Butterworth::LowShelf<4,Iir::DirectFormII> BassBoostr;
+Iir::Butterworth::LowShelf<4,Iir::DirectFormII> lsl;
+Iir::Butterworth::LowShelf<4,Iir::DirectFormII> lsr;
+Iir::Butterworth::BandShelf<4,Iir::DirectFormII> bs1l;
+Iir::Butterworth::BandShelf<4,Iir::DirectFormII> bs1r;
+Iir::Butterworth::BandShelf<3,Iir::DirectFormII> bs2l;
+Iir::Butterworth::BandShelf<3,Iir::DirectFormII> bs2r;
+Iir::Butterworth::BandShelf<2,Iir::DirectFormII> bs3l;
+Iir::Butterworth::BandShelf<2,Iir::DirectFormII> bs3r;
+Iir::Butterworth::BandShelf<2,Iir::DirectFormII> bs4l;
+Iir::Butterworth::BandShelf<2,Iir::DirectFormII> bs4r;
+Iir::Butterworth::BandShelf<3,Iir::DirectFormII> bs5l;
+Iir::Butterworth::BandShelf<3,Iir::DirectFormII> bs5r;
+Iir::Butterworth::BandShelf<3,Iir::DirectFormII> bs6l;
+Iir::Butterworth::BandShelf<3,Iir::DirectFormII> bs6r;
+Iir::Butterworth::BandShelf<3,Iir::DirectFormII> bs7l;
+Iir::Butterworth::BandShelf<3,Iir::DirectFormII> bs7r;
+Iir::Butterworth::BandShelf<3,Iir::DirectFormII> bs8l;
+Iir::Butterworth::BandShelf<3,Iir::DirectFormII> bs8r;
+Iir::Butterworth::BandShelf<2,Iir::DirectFormII> bs9l;
+Iir::Butterworth::BandShelf<2,Iir::DirectFormII> bs9r;
+Iir::Butterworth::BandShelf<2,Iir::DirectFormII> bs10l;
+Iir::Butterworth::BandShelf<2,Iir::DirectFormII> bs10r;
+Iir::Butterworth::HighShelf<2,Iir::DirectFormII> bs11l;
+Iir::Butterworth::HighShelf<2,Iir::DirectFormII> bs11r;
 void updateEffectProc();
-
 int32_t JNICALL getCurrentAutomaticEffectsGainInMB(JNIEnv* env, jclass clazz) {
 	return ((effectsGainEnabled && effectsEnabled) ? (int32_t)(2000.0 * log10(effectsGainClip[0])) : 0);
 }
@@ -97,55 +120,108 @@ void resetAutomaticEffectsGain() {
 uint32_t JNICALL isAutomaticEffectsGainEnabled(JNIEnv* env, jclass clazz) {
 	return effectsGainEnabled;
 }
-
-void updateEqualizerGains(int32_t bandToReset) {
-	if (!(effectsEnabled & (EQUALIZER_ENABLED | BASSBOOST_ENABLED)))
-		return;
-
-	if (!(effectsEnabled & EQUALIZER_ENABLED)) {
-		//only the bass boost is enabled (set all gains to 0, except for band 2 (0 - 125 Hz))
-		//band 0 = pre
-		equalizerActuallyUsedGainInMillibels[0] = 0;
-		for (int32_t i = 1; i < equalizerMaxBandCount; i++) {
-			equalizerActuallyUsedGainInMillibels[i] = ((i == 2) ? bassBoostStrength : 0);
-			computeFilter(i);
-		}
-	} else {
-		const int32_t lastBand = equalizerMaxBandCount - 1;
-		//band 0 = pre
-		equalizerActuallyUsedGainInMillibels[0] = 0;
-		for (int32_t i = 1; i < lastBand; i++) {
-			//when enabled, add the bass boost to band 2 (0 - 125 Hz)
-			equalizerActuallyUsedGainInMillibels[i] = ((i == 2 && (effectsEnabled & BASSBOOST_ENABLED)) ?
-														(bassBoostStrength + equalizerGainInMillibels[i] - equalizerGainInMillibels[i + 1]) :
-														(equalizerGainInMillibels[i] - equalizerGainInMillibels[i + 1]));
-			computeFilter(i);
-		}
-
-		//pre amp (band 0) is accounted for in the last band
-		equalizerActuallyUsedGainInMillibels[lastBand] = equalizerGainInMillibels[lastBand] + equalizerGainInMillibels[0];
-		computeFilter(lastBand);
+void computeFilter() {
+/*	LOGI("PreAmp: %d",equalizerGainInMillibels[0]/100);
+	LOGI("Band1: %d",equalizerGainInMillibels[1]/100);
+	LOGI("Band2: %d",equalizerGainInMillibels[2]/100);
+	LOGI("Band3: %d",equalizerGainInMillibels[3]/100);
+	LOGI("Band4: %d",equalizerGainInMillibels[4]/100);
+	LOGI("Band5: %d",equalizerGainInMillibels[5]/100);
+	LOGI("Band6: %d",equalizerGainInMillibels[6]/100);
+	LOGI("Band7: %d",equalizerGainInMillibels[7]/100);
+	LOGI("Band8: %d",equalizerGainInMillibels[8]/100);
+	LOGI("Band9: %d",equalizerGainInMillibels[9]/100);
+	LOGI("Band10: %d",equalizerGainInMillibels[10]/100);
+	LOGI("Band11: %d",equalizerGainInMillibels[11]/100);
+	LOGI("Band12: %d",equalizerGainInMillibels[12]/100);*/
+	preAmpVal = equalizerGainInMillibels[0];
+	if(preAmpVal>0.0) {
+		preAmpVal = preAmpVal/100;
 	}
-
-	//Apparently, resetting only a few bands puts the entire equalizer in an
-	//unstable state some times... :/
-	//if (bandToReset < 1) //reset all bands
-		memset(equalizerStates, 0, (BAND_COUNT - 2) * sizeof(EqualizerState));
-	//else if (bandToReset == 1) //reset only the first band
-	//	memset(equalizerStates, 0, sizeof(EqualizerState));
-	//else //reset the given band + its previous one
-	//	memset(equalizerStates + (bandToReset - 2), 0, 2 * sizeof(EqualizerState));
+	if(preAmpVal>6.0) {
+		preAmpVal = 6.0;
+	}
+	if(preAmpVal==0.0)
+		preAmpVal = 1;
+	if(preAmpVal<0) {
+		preAmpVal = 99/abs(preAmpVal);
+	}
+	lsl.setup(4, dstSampleRate, 32.0, equalizerGainInMillibels[1]/100);
+	lsr.setup(4, dstSampleRate, 32.0, equalizerGainInMillibels[1]/100);
+	lsl.reset();
+	lsr.reset();
+	bs1l.setup(4, dstSampleRate, 64.0f, 52.0, equalizerGainInMillibels[2]/100);
+	bs1r.setup(4, dstSampleRate, 64.0f, 52.0, equalizerGainInMillibels[2]/100);
+	bs1l.reset();
+	bs1r.reset();
+	bs2l.setup(3, dstSampleRate, 126.0f, 66.0, equalizerGainInMillibels[3]/100);
+	bs2r.setup(3, dstSampleRate, 126.0f, 66.0, equalizerGainInMillibels[3]/100);
+	bs2l.reset();
+	bs2r.reset();
+	bs3l.setup(2, dstSampleRate, 220.0f, 110.0, equalizerGainInMillibels[4]/100);
+	bs3r.setup(2, dstSampleRate, 220.0f, 110.0, equalizerGainInMillibels[4]/100);
+	bs3l.reset();
+	bs3r.reset();
+	bs4l.setup(2, dstSampleRate, 380.0f, 180.0, equalizerGainInMillibels[5]/100);
+	bs4r.setup(2, dstSampleRate, 380.0f, 180.0, equalizerGainInMillibels[5]/100);
+	bs4l.reset();
+	bs4r.reset();
+	bs5l.setup(3, dstSampleRate, 750.0f, 600.0, equalizerGainInMillibels[6]/100);
+	bs5r.setup(3, dstSampleRate, 750.0f, 600.0, equalizerGainInMillibels[6]/100);
+	bs5l.reset();
+	bs5r.reset();
+	bs6l.setup(3, dstSampleRate, 1600.0f, 1000.0, equalizerGainInMillibels[7]/100);
+	bs6r.setup(3, dstSampleRate, 1600.0f, 1000.0, equalizerGainInMillibels[7]/100);
+	bs6l.reset();
+	bs6r.reset();
+	bs7l.setup(3, dstSampleRate, 3000.0f, 1800.0, equalizerGainInMillibels[8]/100);
+	bs7r.setup(3, dstSampleRate, 3000.0f, 1800.0, equalizerGainInMillibels[8]/100);
+	bs7l.reset();
+	bs7r.reset();
+	bs8l.setup(3, dstSampleRate, 4800.0f, 1800.0, equalizerGainInMillibels[9]/100);
+	bs8r.setup(3, dstSampleRate, 4800.0f, 1800.0, equalizerGainInMillibels[9]/100);
+	bs8l.reset();
+	bs8r.reset();
+	bs9l.setup(2, dstSampleRate, 7000.0f, 2800.0, equalizerGainInMillibels[10]/100);
+	bs9r.setup(2, dstSampleRate, 7000.0f, 2800.0, equalizerGainInMillibels[10]/100);
+	bs9l.reset();
+	bs9r.reset();
+	bs10l.setup(2, dstSampleRate, 11000.0f, 3400.0, equalizerGainInMillibels[11]/100);
+	bs10r.setup(2, dstSampleRate, 11000.0f, 3400.0, equalizerGainInMillibels[11]/100);
+	bs10l.reset();
+	bs10r.reset();
+	bs11l.setup(2, dstSampleRate, 15000.0f, equalizerGainInMillibels[12]/100);
+	bs11r.setup(2, dstSampleRate, 15000.0f, equalizerGainInMillibels[12]/100);
+	bs11l.reset();
+	bs11r.reset();
 }
 
 void resetEqualizer() {
 	memset(effectsTemp, 0, 4 * sizeof(int32_t));
-	memset(equalizerStates, 0, (BAND_COUNT - 2) * sizeof(EqualizerState));
-}
-
-void destroyVirtualizer() {
-}
-
-void resetVirtualizer() {
+	lsl.reset();
+	lsr.reset();
+	bs1l.reset();
+	bs1r.reset();
+	bs2l.reset();
+	bs2r.reset();
+	bs3l.reset();
+	bs3r.reset();
+	bs4l.reset();
+	bs4r.reset();
+	bs5l.reset();
+	bs5r.reset();
+	bs6l.reset();
+	bs6r.reset();
+	bs7l.reset();
+	bs7r.reset();
+	bs8l.reset();
+	bs8r.reset();
+	bs9l.reset();
+	bs9r.reset();
+	bs10l.reset();
+	bs10r.reset();
+	bs11l.reset();
+	bs11r.reset();
 }
 
 void equalizerConfigChanged() {
@@ -161,31 +237,14 @@ void equalizerConfigChanged() {
 	effectsGainRecoveryPerFrame[0] = (float)pow(10.0, GAIN_RECOVERY_PER_SECOND_DB / (double)(dstSampleRate * 20));
 	effectsGainRecoveryPerFrame[1] = effectsGainRecoveryPerFrame[0];
 
-	updateEqualizerGains(-1);
 	resetAutomaticEffectsGain();
 	resetEqualizer();
 }
-
-void recomputeVirtualizer() {
-	//recompute the filter
-}
-
 void virtualizerConfigChanged() {
-	//this only happens in two moments: upon initialization and when the sample rate changes
-
-	if (!(effectsEnabled & VIRTUALIZER_ENABLED))
-		return;
-
-	destroyVirtualizer();
-
-	//recreate all internal structures
-
-	//recompute the filter
-	recomputeVirtualizer();
-
-	resetVirtualizer();
 }
-
+void resetVirtualizer() {
+}
+#define BBFreq 400
 void initializeEffects() {
 	effectsEnabled = 0;
 	bassBoostStrength = 0;
@@ -209,15 +268,39 @@ void initializeEffects() {
 
 	memset(equalizerGainInMillibels, 0, BAND_COUNT * sizeof(int32_t));
 	memset(equalizerActuallyUsedGainInMillibels, 0, BAND_COUNT * sizeof(int32_t));
-	memset(equalizerCoefs, 0, (BAND_COUNT - 2) * sizeof(EqualizerCoefs));
+	BassBoostl.setup(4, dstSampleRate, BBFreq, 0);
+	BassBoostl.reset();
+	BassBoostr.setup(4, dstSampleRate, BBFreq, 0);
+	BassBoostr.reset();
+	lsl.reset();
+	lsr.reset();
+	bs1l.reset();
+	bs1r.reset();
+	bs2l.reset();
+	bs2r.reset();
+	bs3l.reset();
+	bs3r.reset();
+	bs4l.reset();
+	bs4r.reset();
+	bs5l.reset();
+	bs5r.reset();
+	bs6l.reset();
+	bs6r.reset();
+	bs7l.reset();
+	bs7r.reset();
+	bs8l.reset();
+	bs8r.reset();
+	bs9l.reset();
+	bs9r.reset();
+	bs10l.reset();
+	bs10r.reset();
+	bs11l.reset();
+	bs11r.reset();
 
 	resetAutomaticEffectsGain();
 	resetEqualizer();
-	resetVirtualizer();
-
 	updateEffectProc();
 }
-
 void terminateEffects() {
 	if (effectsFloatSamplesOriginal) {
 		delete effectsFloatSamplesOriginal;
@@ -245,62 +328,51 @@ void processEffects(int16_t* buffer, uint32_t sizeInFrames) {
 		for (int32_t i = ((sizeInFrames << 1) - 1); i >= 0; i--)
 			effectsFloatSamples[i] = (float)buffer[i];
 	}
-
-	if ((effectsEnabled & (EQUALIZER_ENABLED | BASSBOOST_ENABLED))) {
-		if (equalizerActuallyUsedGainInMillibels[equalizerMaxBandCount - 1]) {
-			const float lastBandGain = equalizerLastBandGain[0];
-			for (int32_t i = ((sizeInFrames << 1) - 1); i >= 0; i--)
-				effectsFloatSamples[i] = (float)buffer[i] * lastBandGain;
-		}
-
-		//apply each filter in all samples before moving on to the next filter (band 0 = pre)
-		for (int32_t band = equalizerMaxBandCount - 2; band >= 1; band--) {
-			//if this band has no gain at all, we can skip it completely (there is no need to worry about
-			//equalizerStates[band - 1] because when any gain is changed, all states are zeroed out in updateEqualizerGains())
-			if (!equalizerActuallyUsedGainInMillibels[band])
-				continue;
-
-			//we will work with local copies, not with the original pointers
-			const EqualizerCoefs* const equalizerCoef = &(equalizerCoefs[band - 1]);
-			const float b0 = equalizerCoef->b0L;
-			const float b1 = equalizerCoef->b1L;
-			const float _a1 = equalizerCoef->_a1L;
-			const float b2 = equalizerCoef->b2L;
-			const float _a2 = equalizerCoef->_a2L;
-			EqualizerState equalizerState = equalizerStates[band - 1];
-
-			float* samples = effectsFloatSamples;
-
-			for (int32_t i = sizeInFrames - 1; i >= 0; i--) {
-				const float inL = samples[0];
-				const float inR = samples[1];
-
-				const float outL = (b0 * inL) + (b1 * equalizerState.x_n1_L) + (_a1 * equalizerState.y_n1_L) + (b2 * equalizerState.x_n2_L) + (_a2 * equalizerState.y_n2_L);
-				const float outR = (b0 * inR) + (b1 * equalizerState.x_n1_R) + (_a1 * equalizerState.y_n1_R) + (b2 * equalizerState.x_n2_R) + (_a2 * equalizerState.y_n2_R);
-
-				equalizerState.x_n2_L = equalizerState.x_n1_L;
-				equalizerState.x_n2_R = equalizerState.x_n1_R;
-				equalizerState.y_n2_L = equalizerState.y_n1_L;
-				equalizerState.y_n2_R = equalizerState.y_n1_R;
-
-				equalizerState.x_n1_L = inL;
-				equalizerState.x_n1_R = inR;
-				equalizerState.y_n1_L = outL;
-				equalizerState.y_n1_R = outR;
-
-				samples[0] = outL;
-				samples[1] = outR;
-
-				samples += 2;
-			}
-
-			equalizerStates[band - 1] = equalizerState;
+	float* samples = effectsFloatSamples;
+	if ((effectsEnabled & EQUALIZER_ENABLED)) {
+		for (int32_t i = sizeInFrames - 1; i >= 0; i--) {
+			const float inL = samples[0] * preAmpVal;
+			const float inR = samples[1] * preAmpVal;
+			float outL = lsl.filter(inL);
+			float outR = lsr.filter(inR);
+			outL = bs1l.filter(outL);
+			outR = bs1r.filter(outR);
+			outL = bs2l.filter(outL);
+			outR = bs2r.filter(outR);
+			outL = bs3l.filter(outL);
+			outR = bs3r.filter(outR);
+			outL = bs4l.filter(outL);
+			outR = bs4r.filter(outR);
+			outL = bs5l.filter(outL);
+			outR = bs5r.filter(outR);
+			outL = bs6l.filter(outL);
+			outR = bs6r.filter(outR);
+			outL = bs7l.filter(outL);
+			outR = bs7r.filter(outR);
+			outL = bs8l.filter(outL);
+			outR = bs8r.filter(outR);
+			outL = bs9l.filter(outL);
+			outR = bs9r.filter(outR);
+			outL = bs10l.filter(outL);
+			outR = bs10r.filter(outR);
+			outL = bs11l.filter(outL);
+			outR = bs11r.filter(outR);
+			samples[0] = outL;
+			samples[1] = outR;
+			samples += 2;
 		}
 	}
-
-	//if ((effectsEnabled & VIRTUALIZER_ENABLED)) {
-	//}
-
+	if ((effectsEnabled & BASSBOOST_ENABLED)) {
+		for (int32_t i = sizeInFrames - 1; i >= 0; i--) {
+			const float inL = samples[0];
+			const float inR = samples[1];
+			const float outL = BassBoostl.filter(inL);
+			const float outR = BassBoostr.filter(inR);
+			samples[0] = outL;
+			samples[1] = outR;
+			samples += 2;
+		}
+	}
 	float gainClip = effectsGainClip[0];
 	float maxAbsSample = 0.0f;
 	float* floatSamples = effectsFloatSamples;
@@ -317,7 +389,6 @@ void processEffects(int16_t* buffer, uint32_t sizeInFrames) {
 			if (gainClip > 1.0f)
 				gainClip = 1.0f;
 		}
-
 		//abs
 		const uint32_t tmpAbsL = *((uint32_t*)&inL) & 0x7FFFFFFF;
 		if (maxAbsSample < *((float*)&tmpAbsL))
@@ -360,7 +431,7 @@ void JNICALL enableEqualizer(JNIEnv* env, jclass clazz, uint32_t enabled) {
 	if (!oldEffects && effectsEnabled)
 		resetAutomaticEffectsGain();
 
-	updateEqualizerGains(-1);
+	computeFilter();
 	updateEffectProc();
 }
 
@@ -373,9 +444,7 @@ void JNICALL setEqualizerBandLevel(JNIEnv* env, jclass clazz, uint32_t band, int
 		return;
 
 	equalizerGainInMillibels[band] = ((level <= -DB_RANGE) ? -DB_RANGE : ((level >= DB_RANGE) ? DB_RANGE : level));
-
-	if ((effectsEnabled & EQUALIZER_ENABLED))
-		updateEqualizerGains(band);
+	computeFilter();
 }
 
 void JNICALL setEqualizerBandLevels(JNIEnv* env, jclass clazz, jshortArray jlevels) {
@@ -385,11 +454,8 @@ void JNICALL setEqualizerBandLevels(JNIEnv* env, jclass clazz, jshortArray jleve
 
 	for (int32_t i = 0; i < BAND_COUNT; i++)
 		equalizerGainInMillibels[i] = ((levels[i] <= -DB_RANGE) ? -DB_RANGE : ((levels[i] >= DB_RANGE) ? DB_RANGE : levels[i]));
-
+	computeFilter();
 	env->ReleasePrimitiveArrayCritical(jlevels, levels, JNI_ABORT);
-
-	if ((effectsEnabled & EQUALIZER_ENABLED))
-		updateEqualizerGains(-1);
 }
 
 void JNICALL enableBassBoost(JNIEnv* env, jclass clazz, uint32_t enabled) {
@@ -401,8 +467,6 @@ void JNICALL enableBassBoost(JNIEnv* env, jclass clazz, uint32_t enabled) {
 
 	if (!oldEffects && effectsEnabled)
 		resetAutomaticEffectsGain();
-
-	updateEqualizerGains(2);
 	updateEffectProc();
 }
 
@@ -412,15 +476,15 @@ uint32_t JNICALL isBassBoostEnabled(JNIEnv* env, jclass clazz) {
 
 void JNICALL setBassBoostStrength(JNIEnv* env, jclass clazz, int32_t strength) {
 	bassBoostStrength = ((strength <= 0) ? 0 : ((strength >= 1000) ? 1000 : strength));
-
-	if ((effectsEnabled & BASSBOOST_ENABLED))
-		updateEqualizerGains(2);
+	BassBoostl.setup (4, dstSampleRate, BBFreq, bassBoostStrength/100);
+	BassBoostl.reset();
+	BassBoostr.setup (4, dstSampleRate, BBFreq, bassBoostStrength/100);
+	BassBoostr.reset();
 }
 
 int32_t JNICALL getBassBoostRoundedStrength(JNIEnv* env, jclass clazz) {
 	return bassBoostStrength;
 }
-
 void JNICALL enableVirtualizer(JNIEnv* env, jclass clazz, int32_t enabled) {
 	const uint32_t oldEffects = effectsEnabled;
 	if (enabled)
@@ -432,11 +496,8 @@ void JNICALL enableVirtualizer(JNIEnv* env, jclass clazz, int32_t enabled) {
 		resetAutomaticEffectsGain();
 
 	//recreate the filter if the virtualizer is enabled
-	if ((effectsEnabled & VIRTUALIZER_ENABLED))
-		virtualizerConfigChanged();
-	else
-		destroyVirtualizer();
-
+	if ((effectsEnabled & VIRTUALIZER_ENABLED)) {
+	}
 	updateEffectProc();
 }
 
@@ -448,8 +509,8 @@ void JNICALL setVirtualizerStrength(JNIEnv* env, jclass clazz, int32_t strength)
 	virtualizerStrength = ((strength <= 0) ? 0 : ((strength >= 1000) ? 1000 : strength));
 
 	//recompute the filter if the virtualizer is enabled
-	if ((effectsEnabled & VIRTUALIZER_ENABLED))
-		recomputeVirtualizer();
+	if ((effectsEnabled & VIRTUALIZER_ENABLED)) {
+	}
 }
 
 int32_t JNICALL getVirtualizerRoundedStrength(JNIEnv* env, jclass clazz) {

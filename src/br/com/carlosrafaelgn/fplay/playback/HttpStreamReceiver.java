@@ -189,12 +189,6 @@ public final class HttpStreamReceiver implements Runnable {
 			PowerManager.WakeLock wakeLock = null;
 
 			try {
-				if (!BuildConfig.X) {
-					wakeLock = ((PowerManager)Player.theApplication.getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK | PowerManager.ON_AFTER_RELEASE, "MediaContext WakeLock");
-					wakeLock.setReferenceCounted(false);
-					wakeLock.acquire();
-				}
-
 				if (!waitForHeaders())
 					return;
 
@@ -204,15 +198,11 @@ public final class HttpStreamReceiver implements Runnable {
 				if (inputFrameSize < 0)
 					return;
 
-				if (BuildConfig.X) {
 					if (handler != null) {
 						if (buffer.waitUntilCanRead(inputFrameSize) < 0)
 							return;
 						handler.sendMessageAtTime(Message.obtain(handler, infoMsg, arg1, 0, extractor), SystemClock.uptimeMillis());
 					}
-					return;
-				}
-
 				//only mono and stereo, with sample rates <= 48000 Hz
 				if ((extractor.getChannelCount() != 1 && extractor.getChannelCount() != 2) ||
 					(extractor.getSampleRate() > 48000)) {

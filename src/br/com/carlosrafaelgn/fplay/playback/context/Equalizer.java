@@ -30,16 +30,70 @@
 //
 // https://github.com/carlosrafaelgn/FPlayAndroid
 //
+package br.com.carlosrafaelgn.fplay.playback.context;
 
-typedef void (*EFFECTPROC)(int16_t* buffer, uint32_t sizeInFrames);
+public final class Equalizer {
+	private static final short DB_RANGE = 1600; //+-15dB (in millibels)
 
-#define MAXIMUM_BUFFER_SIZE_IN_FRAMES_FOR_PROCESSING 1152
+	public short[] getBandLevelRange() {
+		return new short[] { -DB_RANGE, DB_RANGE };
+	}
 
-#define MAX_ALLOWED_SAMPLE_VALUE 31000.0f //31000/32768 = 0.946 = -0.48dB
+	public int getCenterFreq(short band) {
+		switch (band) {
+		case 0:
+			return 0;
+		case 1:
+			return 32000;
+		case 2:
+			return 64000;
+		case 3:
+			return 126000;
+		case 4:
+			return 220000;
+		case 5:
+			return 380000;
+		case 6:
+			return 750000;
+		case 7:
+			return 1600000;
+		case 8:
+			return 3000000;
+		case 9:
+			return 4800000;
+		case 10:
+			return 7000000;
+		case 11:
+			return 11000000;
+		default:
+			return 15000000;
+		}
+	}
 
-#define DB_RANGE 1600 //+-22dB (in millibels)
-#define BAND_COUNT 13 //Pre 31/62 125 250 500/1k 2k/4k 8k/16k
+	public short getNumberOfBands() {
+		return 13;
+	}
 
-#define EQUALIZER_ENABLED 1
-#define BASSBOOST_ENABLED 2
-#define VIRTUALIZER_ENABLED 4
+	public void setBandLevel(short band, short level) {
+		MediaContext._setEqualizerBandLevel(band, level);
+	}
+
+	public void setProperties(short numBands, short[] bandLevels) {
+		if (numBands != 13 || bandLevels == null || bandLevels.length < 13)
+			return;
+		MediaContext._setEqualizerBandLevels(bandLevels);
+	}
+
+	public int setEnabled(boolean enabled) {
+		MediaContext._enableEqualizer(enabled ? 1 : 0);
+		return 0;
+	}
+
+	public boolean getEnabled() {
+		return (MediaContext.isEqualizerEnabled() != 0);
+	}
+
+	public void release() {
+		MediaContext._enableEqualizer(0);
+	}
+}

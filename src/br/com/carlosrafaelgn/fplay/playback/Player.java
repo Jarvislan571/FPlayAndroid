@@ -330,13 +330,6 @@ public final class Player extends Service implements AudioManager.OnAudioFocusCh
 				_nextMayHaveChanged((Song)msg.obj);
 				break;
 			case MSG_ENABLE_EFFECTS:
-				if (!BuildConfig.X) {
-					if (ExternalFx.isEnabled())
-						ExternalFx._setEnabled(false);
-					else
-						ExternalFx._release();
-					ExternalFx._setEnabled(false);
-				}
 				_enableEffects(msg.arg1, msg.arg2, (Runnable)msg.obj);
 				break;
 			case MSG_COMMIT_EQUALIZER:
@@ -353,26 +346,6 @@ public final class Player extends Service implements AudioManager.OnAudioFocusCh
 					_reinitializeEffects();
 				break;
 			case MSG_ENABLE_EXTERNAL_FX:
-				if (BuildConfig.X)
-					break;
-
-				if (msg.arg1 != 0) {
-					Equalizer._release();
-					BassBoost._release();
-					Virtualizer._release();
-					ExternalFx._initialize();
-					ExternalFx._setEnabled(true);
-
-					//if anything goes wrong while enabling ExternalFx, go back to the previous state
-					if (ExternalFx.isEnabled() && ExternalFx.isSupported())
-						break;
-				}
-
-				ExternalFx._setEnabled(false);
-				_reinitializeEffects();
-
-				if (msg.obj != null)
-					MainHandler.postToMainThread((Runnable)msg.obj);
 				break;
 			case MSG_SONG_LIST_DESERIALIZED:
 				_songListDeserialized(msg.obj);
@@ -581,8 +554,6 @@ public final class Player extends Service implements AudioManager.OnAudioFocusCh
 					Equalizer._checkSupport();
 					BassBoost._checkSupport();
 					Virtualizer._checkSupport();
-					if (!BuildConfig.X)
-						ExternalFx._checkSupport();
 					_checkAudioSink(false, false, false, false);
 					audioSinkUsedInEffects = audioSink;
 					_reinitializeEffects();
@@ -1066,8 +1037,6 @@ public final class Player extends Service implements AudioManager.OnAudioFocusCh
 		Equalizer._release();
 		BassBoost._release();
 		Virtualizer._release();
-		if (!BuildConfig.X)
-			ExternalFx._release();
 	}
 
 	private static void _initializePlayers() {
@@ -1257,7 +1226,7 @@ public final class Player extends Service implements AudioManager.OnAudioFocusCh
 			//longer using prepareAsync
 			_updateState(false, null);
 
-			if (BuildConfig.X || !song.isHttp) {
+			if (!song.isHttp) {
 				//Even though it happens very rarely, a few devices will freeze and produce an ANR
 				//when calling setDataSource from the main thread :(
 				player.setDataSource(song.path);
@@ -1469,7 +1438,6 @@ public final class Player extends Service implements AudioManager.OnAudioFocusCh
 			return;
 		}
 
-		if (BuildConfig.X) {
 			boolean enabled = ((enabledFlags & 1) != 0);
 			if (enabled) {
 				if (!Equalizer._isCreated() || enabled != Equalizer.isEnabled(audioSink)) {
@@ -1511,8 +1479,7 @@ public final class Player extends Service implements AudioManager.OnAudioFocusCh
 
 			if (callback != null)
 				MainHandler.postToMainThread(callback);
-			return;
-		}
+//			return;
 
 		//don't even ask.......
 		//(a few devices won't disable one effect while the other effect is enabled)
@@ -1549,15 +1516,6 @@ public final class Player extends Service implements AudioManager.OnAudioFocusCh
 		Equalizer._release();
 		BassBoost._release();
 		Virtualizer._release();
-		if (!BuildConfig.X) {
-			ExternalFx._release();
-			if (ExternalFx.isEnabled() && ExternalFx.isSupported()) {
-				ExternalFx._initialize();
-				ExternalFx._setEnabled(true);
-				if (ExternalFx.isEnabled() && ExternalFx.isSupported())
-					return;
-			}
-		}
 		if (Equalizer.isEnabled(audioSinkUsedInEffects)) {
 			Equalizer._initialize();
 			Equalizer._setEnabled(true, audioSinkUsedInEffects);
@@ -2421,8 +2379,6 @@ public final class Player extends Service implements AudioManager.OnAudioFocusCh
 		Equalizer.loadConfig(opts);
 		BassBoost.loadConfig(opts);
 		Virtualizer.loadConfig(opts);
-		if (!BuildConfig.X)
-			ExternalFx.loadConfig(opts);
 	}
 
 	@SuppressWarnings({ "PointlessBooleanExpression", "ConstantConditions" })
@@ -2522,8 +2478,6 @@ public final class Player extends Service implements AudioManager.OnAudioFocusCh
 		Equalizer.saveConfig(opts);
 		BassBoost.saveConfig(opts);
 		Virtualizer.saveConfig(opts);
-		if (!BuildConfig.X)
-			ExternalFx.saveConfig(opts);
 		opts.serialize("_Player");
 		if (saveSongs)
 			songs.serialize();
@@ -3102,7 +3056,7 @@ public final class Player extends Service implements AudioManager.OnAudioFocusCh
 			registerMediaSession();
 		} else {
 			if (mediaButtonEventReceiver == null)
-				mediaButtonEventReceiver = new ComponentName(BuildConfig.APPLICATION_ID, "br.com.carlosrafaelgn.fplay.ExternalReceiver");
+				mediaButtonEventReceiver = new ComponentName("br.com.carlosrafaelgn.fplay.x", "br.com.carlosrafaelgn.fplay.ExternalReceiver");
 			if (audioManager != null) {
 				audioManager.registerMediaButtonEventReceiver(mediaButtonEventReceiver);
 				if (thePlayer != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH)

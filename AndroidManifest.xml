@@ -8,11 +8,6 @@
     <!-- versionCode must be kept in sync with UI.VERSION_CODE -->
     <!-- versionName must be kept in sync with UI.VERSION_NAME -->
 
-    <!-- In favor of gradle -->
-	<!-- <uses-sdk
-        android:minSdkVersion="10"
-        android:targetSdkVersion="23" /> -->
-
     <!-- http://developer.android.com/guide/topics/manifest/supports-screens-element.html -->
     <supports-screens
         android:anyDensity="true"
@@ -36,7 +31,8 @@
     <!-- Apparently, a few devices require this.... (not only to make android.media.audiofx.PresetReverb work, but to control volume and other settings)  -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
-
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
     <!-- These three permissions are not classified as PROTECTION_NORMAL in Android M API 23
      https://developer.android.com/guide/topics/security/permissions.html#normal-dangerous -->
     <!-- For the immersive visualizer -->
@@ -88,7 +84,6 @@
         android:banner="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:fullBackupContent="@xml/backup_rules"
         android:theme="@style/AppTheme" >
 
         <!-- http://stackoverflow.com/a/14185426/3569421 -->
@@ -109,7 +104,6 @@
             android:launchMode="singleTask"
             android:multiprocess="false"
             android:screenOrientation="unspecified"
-            android:resizeableActivity="true"
             android:stateNotNeeded="true"
             android:theme="@style/AppTheme" >
             <intent-filter>
@@ -224,7 +218,6 @@
             android:multiprocess="false"
             android:parentActivityName="br.com.carlosrafaelgn.fplay.activity.ActivityHost"
             android:screenOrientation="unspecified"
-            android:resizeableActivity="true"
             android:stateNotNeeded="true"
             android:theme="@style/AppTheme" >
             <meta-data

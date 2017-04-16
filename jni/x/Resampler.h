@@ -216,12 +216,8 @@ uint32_t resampleLagrangeINT(int16_t* srcBuffer, uint32_t srcSizeInFrames, int16
 	while (resamplePendingAdvances) {
 		resamplePendingAdvances--;
 
-		//for (int32_t i = 0; i < 9; i++)
-		//	((uint64_t*)resampleYINT)[i] = ((uint64_t*)resampleYINT)[i + 1];
-		for (int32_t i = 0; i < 18; i += 2) {
-			resampleYINT[i] = resampleYINT[i + 2];
-			resampleYINT[i + 1] = resampleYINT[i + 3];
-		}
+		for (int32_t i = 0; i < 9; i++)
+			((uint64_t*)resampleYINT)[i] = ((uint64_t*)resampleYINT)[i + 1];
 		resampleYINT[18] = (int32_t)srcBuffer[0];
 		resampleYINT[19] = (int32_t)srcBuffer[1];
 
@@ -282,12 +278,8 @@ uint32_t resampleLagrangeINT(int16_t* srcBuffer, uint32_t srcSizeInFrames, int16
 		while (resamplePendingAdvances) {
 			resamplePendingAdvances--;
 
-			//for (int32_t i = 0; i < 9; i++)
-			//	((uint64_t*)resampleYINT)[i] = ((uint64_t*)resampleYINT)[i + 1];
-			for (int32_t i = 0; i < 18; i += 2) {
-				resampleYINT[i] = resampleYINT[i + 2];
-				resampleYINT[i + 1] = resampleYINT[i + 3];
-			}
+			for (int32_t i = 0; i < 9; i++)
+				((uint64_t*)resampleYINT)[i] = ((uint64_t*)resampleYINT)[i + 1];
 			resampleYINT[18] = (int32_t)srcBuffer[0];
 			resampleYINT[19] = (int32_t)srcBuffer[1];
 
@@ -648,6 +640,7 @@ void resetResampler() {
 		//applying any filters
 		if ((srcSampleRate == 48000 && dstSampleRate == 44100) ||
 			(srcSampleRate >= 8000 && dstSampleRate > srcSampleRate)) {
+
 #ifdef FPLAY_X86
 			resampleProc = ((srcChannelCount == 2) ? resampleLagrange : resampleLagrangeMono);
 #else
